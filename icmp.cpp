@@ -1,6 +1,6 @@
 #include <iostream>
 #include <iomanip>
-#include <stdio.h>
+#include <cstdio>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -29,13 +29,19 @@ int icmpfd;
 struct timeval tvrecv;
 
 
-void tv_sub(struct timeval *out,struct timeval *in)
-{       
-	if( (out->tv_usec-=in->tv_usec)<0)
-        	{       	--out->tv_sec;
-                	out->tv_usec+=1000000;
-        	}
-        	out->tv_sec-=in->tv_sec;
+double tv_sub(struct timeval *recv,struct timeval *send)
+{
+	double t = (recv->tv_sec-send->tv_sec)*1000;
+	double test;
+	if(recv->tv_usec >= send->tv_usec)
+	{
+		test = recv->tv_usec - send->tv_usec;
+	}
+	else{
+		t--;
+		test = (1000+recv->tv_usec - send->tv_usec)/1000.0;
+	}
+	return (test+t)/1000.0;
 }
 
 unsigned short cal_chksum(unsigned short *addr,int len)
@@ -103,9 +109,8 @@ int unpack(char *buf,int len)
         	if( (icmp->icmp_type==ICMP_ECHOREPLY) && (icmp->icmp_id==pid) )
         	{       
         		tvsend=(struct timeval *)icmp->icmp_data;
-                	tv_sub(&tvrecv,tvsend);  /*接收和发送的时间差*/
-                	rtt=tvrecv.tv_sec*1000+tvrecv.tv_usec/1000;  /*以毫秒为单位计算rtt*/
-        		printf("%d bytes icmp_seq=%u ttl=%d time=%.1f ms\n",len,  icmp->icmp_seq,ip->ip_ttl,rtt);
+                	rtt = tv_sub(&tvrecv,tvsend);  /*接收和发送的时间差*/
+        		cout<<len<<" bytes from "<<inet_ntoa(from.sin_addr)<<": icmp_seq="<<icmp->icmp_seq<<" ttl="<<(short)ip->ip_ttl<<" time="<<fixed<<setprecision(2)<<rtt<<" ms"<<endl;
         	}else
         		return -1;
 }
